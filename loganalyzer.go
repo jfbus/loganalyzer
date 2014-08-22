@@ -2,8 +2,10 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"flag"
 	"fmt"
+	"io"
 	"strconv"
 	"os"
 	"regexp"
@@ -235,12 +237,20 @@ func (s statsList) sortByCost() {
 }
 
 func parseFile(file string, format string) {
+	var f io.ReadCloser
 	f, err := os.Open(file)
 	if err != nil {
 		fmt.Println("error opening file= ", err)
 		os.Exit(1)
 	}
 	defer f.Close()
+	if strings.HasSuffix(file, ".gz") {
+		f, err = gzip.NewReader(f)
+		if err != nil {
+			fmt.Println("error decompressing file= ", err)
+			os.Exit(1)
+		}
+	}
 
 	var re *regexp.Regexp
 	urlIndex := -1
