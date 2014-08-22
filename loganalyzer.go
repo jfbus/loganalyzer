@@ -6,32 +6,32 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"strconv"
 	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-var formats = map[string]string {
-	"combined": "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\"",
+var formats = map[string]string{
+	"combined":          "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\"",
 	"combined_duration": "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\".* $duration_seconds",
 }
 
-var patterns = map[string]string {
-	"$remote_addr": "(?P<remote_addr>[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3})",
-	"$remote_user": "[[:alnum:]-]+",
-	"$time_local": "[[:alnum:] :/+-]+",
-	"$request": "(?P<verb>[A-Z]+) (?P<url>[^\\?]+)(\\?.*)? HTTP/[0-9.]+",
-	"$status": "(?P<status>[0-9]+)",
-	"$body_bytes_sent": "(?P<bytes>[0-9]+)",
-	"$http_referer": "[^\"]+",
-	"$http_user_agent": "[^\"]+",
+var patterns = map[string]string{
+	"$remote_addr":      "(?P<remote_addr>[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3})",
+	"$remote_user":      "[[:alnum:]-]+",
+	"$time_local":       "[[:alnum:] :/+-]+",
+	"$request":          "(?P<verb>[A-Z]+) (?P<url>[^\\?]+)(\\?.*)? HTTP/[0-9.]+",
+	"$status":           "(?P<status>[0-9]+)",
+	"$body_bytes_sent":  "(?P<bytes>[0-9]+)",
+	"$http_referer":     "[^\"]+",
+	"$http_user_agent":  "[^\"]+",
 	"$duration_seconds": "(?P<duration>[0-9.]+)",
 }
 
 var cfg struct {
-	NumInTop int
+	NumInTop         int
 	RouteMergeFactor int
 }
 
@@ -83,7 +83,7 @@ func guessFormatRe(format, logline string) *regexp.Regexp {
 
 func getPossibleSubRoutes(parts []string) []string {
 	if len(parts) == 1 {
-		return []string{"/"+parts[0], "/xxx"}
+		return []string{"/" + parts[0], "/xxx"}
 	}
 	sub := getPossibleSubRoutes(parts[1:])
 	routes := []string{}
@@ -107,20 +107,25 @@ func getPossibleRoutes(url string) []string {
 }
 
 type stats struct {
-	route string
-	subRoutes map[string]*stats
+	route                    string
+	subRoutes                map[string]*stats
 	call, error5xx, error404 int
-	duration float32
+	duration                 float32
 }
 
 func (s *stats) addRequest(url, status string, duration float32) {
 	s.call++
 	switch status {
-	case "404": s.error404++
-	case "500": s.error5xx++
-	case "502": s.error5xx++
-	case "503": s.error5xx++
-	case "504": s.error5xx++
+	case "404":
+		s.error404++
+	case "500":
+		s.error5xx++
+	case "502":
+		s.error5xx++
+	case "503":
+		s.error5xx++
+	case "504":
+		s.error5xx++
 	}
 	s.duration += duration
 	parts := strings.Split(url, "/")
@@ -131,7 +136,7 @@ func (s *stats) addRequest(url, status string, duration float32) {
 		}
 		var subUrl string
 		if len(parts) > 2 {
-			subUrl = "/"+strings.Join(parts[2:], "/")
+			subUrl = "/" + strings.Join(parts[2:], "/")
 		}
 		if _, found := s.subRoutes["xxx"]; !found {
 			s.subRoutes["xxx"] = &stats{}
@@ -159,18 +164,17 @@ func (s *stats) flatten() statsList {
 		}
 	}
 	for _, f := range flat {
-		f.route = s.route+"/"+f.route
+		f.route = s.route + "/" + f.route
 	}
 	return flat
 }
-
 
 type statsList []*stats
 
 type lessFn func(a, b *stats) bool
 
 type sortable struct {
-	fn lessFn
+	fn    lessFn
 	stats statsList
 }
 
@@ -268,9 +272,12 @@ func parseFile(file string, format string) {
 			re = guessFormatRe(format, s)
 			for i, name := range re.SubexpNames() {
 				switch name {
-				case "url": urlIndex = i
-				case "status": statusIndex = i
-				case "duration": durationIndex = i
+				case "url":
+					urlIndex = i
+				case "status":
+					statusIndex = i
+				case "duration":
+					durationIndex = i
 				}
 			}
 		}
