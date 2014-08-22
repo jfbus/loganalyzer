@@ -108,6 +108,7 @@ func getPossibleRoutes(url string) []string {
 
 type stats struct {
 	route                    string
+	subIsMerged              bool
 	subRoutes                map[string]*stats
 	call, error5xx, error404 int
 	duration                 float32
@@ -131,6 +132,15 @@ func (s *stats) addRequest(url, status string, duration float32) {
 	parts := strings.Split(url, "/")
 	s.route = parts[0]
 	if len(parts) >= 2 && parts[1] != "" { // /xxx
+
+		// try to guess if next path part is a slug or a page number
+		if strings.Count(parts[1], "-") >= 3 {
+			s.subIsMerged = true
+		}
+		if _, err := strconv.Atoi(parts[1]); err == nil {
+			s.subIsMerged = true
+		}
+
 		if s.subRoutes == nil {
 			s.subRoutes = map[string]*stats{}
 		}
@@ -138,14 +148,18 @@ func (s *stats) addRequest(url, status string, duration float32) {
 		if len(parts) > 2 {
 			subUrl = "/" + strings.Join(parts[2:], "/")
 		}
+
 		if _, found := s.subRoutes["xxx"]; !found {
 			s.subRoutes["xxx"] = &stats{}
 		}
 		s.subRoutes["xxx"].addRequest("xxx"+subUrl, status, duration)
-		if _, found := s.subRoutes[parts[1]]; !found {
-			s.subRoutes[parts[1]] = &stats{}
+
+		if s.subIsMerged == false {
+			if _, found := s.subRoutes[parts[1]]; !found {
+				s.subRoutes[parts[1]] = &stats{}
+			}
+			s.subRoutes[parts[1]].addRequest(parts[1]+subUrl, status, duration)
 		}
-		s.subRoutes[parts[1]].addRequest(parts[1]+subUrl, status, duration)
 	}
 }
 
@@ -158,7 +172,7 @@ func (s *stats) flatten() statsList {
 		flat = append(flat, s.subRoutes["xxx"].flatten()...)
 	} else {
 		for k, sub := range s.subRoutes {
-			if k != "xxx" {
+			if k != "xxx" || len(s.subRoutes) == 1 {
 				flat = append(flat, sub.flatten()...)
 			}
 		}
