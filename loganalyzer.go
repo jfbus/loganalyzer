@@ -37,7 +37,7 @@ var cfg struct {
 
 func main() {
 	flag.IntVar(&cfg.NumInTop, "t", 10, "Number of items in top")
-	flag.IntVar(&cfg.RouteMergeFactor, "m", 10, "Merge factor for route computation")
+	flag.IntVar(&cfg.RouteMergeFactor, "m", 100, "Merge factor for route computation")
 	flag.Parse()
 	file := flag.Arg(0)
 	if file == "" {
@@ -110,25 +110,12 @@ type stats struct {
 	route                    string
 	subIsMerged              bool
 	subRoutes                map[string]*stats
-	call, error5xx, error404 int
+	totalcall, call, error5xx, error404 int
 	duration                 float32
 }
 
 func (s *stats) addRequest(url, status string, duration float32) {
-	s.call++
-	switch status {
-	case "404":
-		s.error404++
-	case "500":
-		s.error5xx++
-	case "502":
-		s.error5xx++
-	case "503":
-		s.error5xx++
-	case "504":
-		s.error5xx++
-	}
-	s.duration += duration
+	s.totalcall++
 	parts := strings.Split(url, "/")
 	s.route = parts[0]
 	if len(parts) >= 2 && parts[1] != "" { // /xxx
@@ -160,6 +147,21 @@ func (s *stats) addRequest(url, status string, duration float32) {
 			}
 			s.subRoutes[parts[1]].addRequest(parts[1]+subUrl, status, duration)
 		}
+	} else {
+		s.call++
+		switch status {
+		case "404":
+			s.error404++
+		case "500":
+			s.error5xx++
+		case "502":
+			s.error5xx++
+		case "503":
+			s.error5xx++
+		case "504":
+			s.error5xx++
+		}
+		s.duration += duration
 	}
 }
 
@@ -168,7 +170,7 @@ func (s *stats) flatten() statsList {
 		return []*stats{s}
 	}
 	flat := []*stats{}
-	if len(s.subRoutes) > s.call/cfg.RouteMergeFactor {
+	if len(s.subRoutes) > s.totalcall/cfg.RouteMergeFactor {
 		flat = append(flat, s.subRoutes["xxx"].flatten()...)
 	} else {
 		for k, sub := range s.subRoutes {
@@ -179,6 +181,9 @@ func (s *stats) flatten() statsList {
 	}
 	for _, f := range flat {
 		f.route = s.route + "/" + f.route
+	}
+	if s.call > 0 {
+		flat = append(flat, s)
 	}
 	return flat
 }
